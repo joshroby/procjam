@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="model.js"></script>
+	</head>
+
+	<body>
+
+		<svg id='svg' width='1000' height='800'>
+		</svg>
+
+		<script type="text/javascript" src="delaunay.js">
+		</script>
+
+		<script type="text/javascript">
+			var sizeX = 1000, sizeY = 800,
+				step = 100,
+				vertices = [],
+				edges = [],
+				i, x, y;
+
+			  document.getElementById('svg').style.width = sizeX;
+			  document.getElementById('svg').style.height = sizeY;
+
+				for (var x=step;x<sizeX;x+=step) {
+					for (var y=step;y<sizeX;y+=step) {
+						vertices.push([x+Math.random()*step*0.9,y+Math.random()*step*0.9]);
+					};
+				};
+				for (x=0;x<sizeX;x+=step) {
+					vertices.push([x,0]);
+					vertices.push([x,sizeY]);
+				}
+				for (y=0;y<sizeY;y+=step) {
+					vertices.push([0,y]);
+					vertices.push([sizeX,y]);
+				};
+
+			console.time("triangulate");
+			var triangles = Delaunay.triangulate(vertices);
+			console.timeEnd("triangulate");
+
+			// converting array to objects
+			for (i in vertices) {
+				vertices[i] = {
+					x: vertices[i][0],
+					y: vertices[i][1],
+					height: Math.random() * 0.5 - 0.25,
+				};
+			};
+	
+			console.time("tectonics");
+			for (i=0;i<300;i++) {
+				var plate = {
+					cx: Math.random() * sizeX*2 - sizeX*0.5,
+					cy: Math.random() * sizeY*2 - sizeY*0.5,
+					r: (Math.random()/2 + 0.5) * Math.min(sizeX,sizeY) * 0.25,
+					dz: 4 * Math.random() - 2,
+				};
+				if (plate.cx < 0 || plate.cx > sizeX || plate.cy < 0 || plate.cy > sizeY) {
+					plate.dz = -1 * Math.abs(plate.dz);
+				};
+				plate.c2x = plate.cx + Math.random() * plate.r - plate.r/2;
+				plate.c2y = plate.cy + Math.random() * plate.r - plate.r/2;
+				plate.r2 = plate.r * Math.random() * 0.9;
+				for (v of vertices) {
+					if (Math.pow(Math.pow(v.x - plate.cx,2)+Math.pow(v.y - plate.cy,2),0.5) < plate.r) {
+						if ((Math.pow(Math.pow(v.x - plate.c2x,2)+Math.pow(v.y - plate.c2y,2),0.5) > plate.r2)) {
+							v.height += plate.dz;
+						};
+					};
+				};
+			};
+			console.timeEnd("tectonics");
+
+			// compiling tiles and edges as objects
+			console.time('compiling tiles');
+			var tiles = [];
+			var edges = {};
+			for (i = triangles.length; i; ) {
+				var newTile = {vertices:[]};
+				newTile.precipitation = 1;
+				var vertexIndices = [];
+				--i;newTile.vertices.push(vertices[triangles[i]]);vertexIndices.push(triangles[i]);
+				--i;newTile.vertices.push(vertices[triangles[i]]);vertexIndices.push(triangles[i]);
+				--i;newTile.vertices.push(vertices[triangles[i]]);vertexIndices.push(triangles[i]);
+				newTile.height = (newTile.vertices[0].height + newTile.vertices[1].height + newTile.vertices[2].height)/3;
+				tiles.push(newTile);
+				vertexIndices.sort();
+				edges['edgeA'+vertexIndices[0]+'B'+vertexIndices[1]] = {vertices:[vertexIndices[0],vertexIndices[1]]};
+				edges['edgeA'+vertexIndices[0]+'B'+vertexIndices[2]] = {vertices:[vertexIndices[0],vertexIndices[2]]};
+				edges['edgeA'+vertexIndices[1]+'B'+vertexIndices[2]] = {vertices:[vertexIndices[1],vertexIndices[2]]};
+				newTile.edges = [edges['edgeA'+vertexIndices[0]+'B'+vertexIndices[1]],edges['edgeA'+vertexIndices[0]+'B'+vertexIndices[2]],edges['edgeA'+vertexIndices[1]+'B'+vertexIndices[2]]];
+				if (newTile.vertices[0].height > newTile.vertices[1].height && newTile.vertices[0].height > newTile.vertices[2].height) {
+					newTile.downhill = edges['edgeA'+vertexIndices[1]+'B'+vertexIndices[2]];
+				} else if (newTile.vertices[1].height > newTile.vertices[2].height && newTile.vertices[1].height > newTile.vertices[0].height) {
+					newTile.downhill = edges['edgeA'+vertexIndices[0]+'B'+vertexIndices[2]];
+				} else {
+					newTile.downhill = edges['edgeA'+vertexIndices[1]+'B'+vertexIndices[0]];
+				};
+			};
+			var edgeNames = Object.keys(edges);
+			var edgeArray = [];
+			for (name of edgeNames) {
+				edgeArray.push(edges[name]);
+			};
+			for (edge of edgeArray) {
+				edge.drainage = 0;
+				edge.vertices = [vertices[edge.vertices[0]],vertices[edge.vertices[1]]];
+				if (edge.vertices[0].height > edge.vertices[1].height) {
+					edge.topVertex = edge.vertices[0];
+					edge.bottomVertex = edge.vertices[1];
+				} else {
+					edge.topVertex = edge.vertices[1];
+					edge.bottomVertex = edge.vertices[0];
+				};
+			};
+			console.timeEnd('compiling tiles');
+	
+			console.time("neighbors");
+			for (tile of tiles) {
+				tile.neighbors = [];
+				tile.adjacent = [];
+				for (potential of tiles) {
+					var m0 = Math.min(0,potential.vertices.indexOf(tile.vertices[0]));
+					var m1 = Math.min(0,potential.vertices.indexOf(tile.vertices[1]));
+					var m2 = Math.min(0,potential.vertices.indexOf(tile.vertices[2]));
+					if (m0 + m1 + m2 > -3) {
+						tile.adjacent.push(potential);
+					};
+					if (m0 + m1 + m2 > -2) {
+						tile.neighbors.push(potential);
+					};
+				};
+			};
+			console.timeEnd("neighbors");
+			
+			console.time('hydrology');
+			var lakes = [];
+			for (edge of edgeArray) {
+				var potentials = [];
+				for (potential of edgeArray) {
+					if (edge.bottomVertex == potential.topVertex) {
+						potentials.push(potential);
+					};
+				};
+				lowestHeight = Infinity;
+				steepestEdge = undefined;
+				for (potential of potentials) {
+					if (potential.bottomVertex.height < lowestHeight) {
+						steepestEdge = potential;
+					};
+				};
+				if (steepestEdge !== undefined) {
+					edge.downhill = steepestEdge;
+				};
+			};
+			for (tile of tiles) {
+				if (tile.downhill !== undefined && tile.height > 0) {
+					tile.downhill.drainage = tile.precipitation;
+//					also add backwards reference for tributaries
+				} else {
+// 					console.log(tile);
+				};
+			};
+			edgeArray.sort((a, b) => a.topVertex.height !== b.topVertex.height ? a.topVertex.height < b.topVertex.height ? 1 : -1 : 0);
+			for (edge of edgeArray) {
+				if (edge.downhill !== undefined && edge.downhill.topVertex.height > 0) {
+					edge.downhill.drainage += edge.drainage;
+				} else if (edge.bottomVertex.height > 0) {
+					console.log('lake?');
+					lakes.push({x:edge.bottomVertex.x,y:edge.bottomVertex.y});
+				};
+			};
+			console.timeEnd('hydrology');
+
+			console.time("render");
+			for (tile of tiles) {
+				if (tile.height < 0) {
+					var depth = 50 - Math.max(-3,tile.height) * -16;
+					tile.color = 'rgb('+depth+'%,'+depth+'%,100%)';
+				} else {
+					var red = 20, green = 50, blue = 0;
+					var elevation = Math.min(5,tile.height);
+					var eastVertex, centerVertex, westVertex;
+					if (tile.vertices[0].x < tile.vertices[1].x && tile.vertices[0].x < tile.vertices[2].x) {
+						westVertex = tile.vertices[0];
+						if (tile.vertices[1] > tile.vertices[2]) {
+							eastVertex = tile.vertices[1];
+							centerVertex = tile.vertices[2];
+						} else {
+							centerVertex = tile.vertices[1];
+							eastVertex = tile.vertices[2];
+						};
+					} else if (tile.vertices[1].x < tile.vertices[0].x && tile.vertices[1].x < tile.vertices[2].x) {
+						westVertex = tile.vertices[1];
+						if (tile.vertices[0] > tile.vertices[2]) {
+							eastVertex = tile.vertices[0];
+							centerVertex = tile.vertices[2];
+						} else {
+							centerVertex = tile.vertices[0];
+							eastVertex = tile.vertices[2];
+						};
+					} else {
+						westVertex = tile.vertices[2];
+						if (tile.vertices[1] > tile.vertices[0]) {
+							eastVertex = tile.vertices[1];
+							centerVertex = tile.vertices[0];
+						} else {
+							centerVertex = tile.vertices[1];
+							eastVertex = tile.vertices[0];
+						};
+					};
+					var slope = Math.max(0.95,Math.min(1.05,westVertex.height/eastVertex.height));
+					red = (red + slope*100)/3;
+					green = (green + slope*100)/3;
+					blue = (blue + slope*100)/3;
+					tile.color = 'rgb('+red+'%,'+green+'%,'+blue+'%)';
+				};
+				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+				polygon.setAttribute('fill',tile.color);
+				polygon.setAttribute('stroke',tile.color);
+				var tileVertices = '';
+				for (v of tile.vertices) {
+					tileVertices += v.x + ',' + v.y + ' ';
+				};
+				polygon.setAttribute('points',tileVertices);
+				document.getElementById('svg').appendChild(polygon);
+			};
+			for (edge of edgeArray) {
+				if (edge.drainage > 1) {
+					var line = document.createElementNS('http://www.w3.org/2000/svg','line');
+					line.setAttribute('stroke','darkcyan');
+					line.setAttribute('stroke-width',edge.drainage/2);
+					line.setAttribute('stroke-linecap','round');
+					line.setAttribute('x1',edge.topVertex.x);
+					line.setAttribute('y1',edge.topVertex.y);
+					line.setAttribute('x2',edge.bottomVertex.x);
+					line.setAttribute('y2',edge.bottomVertex.y);
+					document.getElementById('svg').appendChild(line);
+				};
+			};
+			for (lake of lakes) {
+				var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+				circle.setAttribute('fill','darkcyan');
+				circle.setAttribute('cx',lake.x);
+				circle.setAttribute('cy',lake.y);
+				circle.setAttribute('r',step/2);
+				document.getElementById('svg').appendChild(circle);
+			};
+			console.timeEnd('render');
+		</script>
+	</body>
+</html>
