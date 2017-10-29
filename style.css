@@ -1,4 +1,6 @@
-
+body {
+	cursor: default;
+	}
 
 #mapSVG {
 	float: right;
