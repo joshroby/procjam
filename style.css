@@ -4,6 +4,8 @@ body {
 
 #mapSVG {
 	float: right;
+	width: 100%;
+	border: solid 1px red;
 	}
 
 #detailsDiv {

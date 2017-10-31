@@ -23,13 +23,15 @@ var view = {
 			view.currentZoom.viewBox.width = view.map.sizeX;
 		} else {
 			view.currentZoom.z += zoomFactor * .002;
-			view.currentZoom.z = Math.max(Math.min(view.currentZoom.z,1),0.1);
+			view.currentZoom.z = Math.max(Math.min(view.currentZoom.z,1),0.01);
 			view.currentZoom.viewBox.minX = view.currentZoom.viewBox.minX + view.currentZoom.viewBox.width/2 - view.currentZoom.z*view.map.sizeX/2;
 			view.currentZoom.viewBox.minY = view.currentZoom.viewBox.minY + view.currentZoom.viewBox.height/2 - view.currentZoom.z*view.map.sizeY/2;
 			view.currentZoom.viewBox.width = view.currentZoom.z * view.map.sizeX;
 			view.currentZoom.viewBox.height = view.currentZoom.z * view.map.sizeY;
 		};
-		view.renderMap(view.map);
+		var mapSVG = document.getElementById('mapSVG');
+		var viewBoxString = view.currentZoom.viewBox.minX + ' ' + view.currentZoom.viewBox.minY + ' ' + view.currentZoom.viewBox.width + ' ' + view.currentZoom.viewBox.height;
+		mapSVG.setAttribute('viewBox',viewBoxString);
 	},
 
 	mapDragStart: function(e) {
@@ -54,7 +56,8 @@ var view = {
 				view.currentZoom.dragStartY = e.pageY;
 				viewBox.minY = newMinY;
 			};
-			var viewBoxString = viewBox.minX + ' ' + viewBox.minY + ' ' + viewBox.width + ' ' + viewBox.height;
+			var mapSVG = document.getElementById('mapSVG');
+			var viewBoxString = view.currentZoom.viewBox.minX + ' ' + view.currentZoom.viewBox.minY + ' ' + view.currentZoom.viewBox.width + ' ' + view.currentZoom.viewBox.height;
 			mapSVG.setAttribute('viewBox',viewBoxString);
 		};
 	},
@@ -94,86 +97,90 @@ var view = {
 		var tileGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
 		mapSVG.appendChild(tileGroup);
 		
+		console.time('tile rendering');
 		for (tile of map.tiles) {
 			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
 			tileGroup.appendChild(polygon);
-			if (tile.ice) {
-				var red = 95,green = 95,blue= 99;
-			} else if (tile.z <= 0) {
-				if (tile.temperature > -2) {
-					var depth = 50 - Math.max(-10,tile.z) * -5;
-					tile.color = 'rgb('+depth+'%,'+depth+'%,100%)';
-				};
-			} else if (tile.vertices[1].z == tile.vertices[2].z && tile.vertices[0].z == tile.vertices[2].z) {
-				tile.color = 'rgb(50%,50%,100%)';
-				red = 50;
-				green = 50;
-				blue = 100;
-			} else {
-				var red = 100, green = 90, blue = 80;
-				var precipitationFactor = tile.precipitation / 10;
-				red -= 90 * precipitationFactor;
-				green -= 40 * precipitationFactor;
-				blue -= 60 * precipitationFactor;
-				var elevation = Math.min(20,tile.z);
-				red += elevation;
-				green += elevation;
-				blue += elevation;
-			};
-			if (tile.z > 0) {
-				if (tile.temperature < 0) {
-					var temperatureFactor = Math.min(tile.temperature * -10,100);
-					red = (red * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-					green = (green * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-					blue = (blue * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-				};
-				var eastVertex, centerVertex, westVertex;
-				if (tile.vertices[0].x < tile.vertices[1].x && tile.vertices[0].x < tile.vertices[2].x) {
-					westVertex = tile.vertices[0];
-					if (tile.vertices[1] > tile.vertices[2]) {
-						eastVertex = tile.vertices[1];
-						centerVertex = tile.vertices[2];
-					} else {
-						centerVertex = tile.vertices[1];
-						eastVertex = tile.vertices[2];
+			if (tile.color == undefined) {
+				if (tile.ice) {
+					var red = 95,green = 95,blue= 99;
+				} else if (tile.z <= 0) {
+					if (tile.temperature > -2) {
+						var depth = 50 - Math.max(-10,tile.z) * -5;
+						tile.color = 'rgb('+depth+'%,'+depth+'%,100%)';
 					};
-				} else if (tile.vertices[1].x < tile.vertices[0].x && tile.vertices[1].x < tile.vertices[2].x) {
-					westVertex = tile.vertices[1];
-					if (tile.vertices[0] > tile.vertices[2]) {
-						eastVertex = tile.vertices[0];
-						centerVertex = tile.vertices[2];
-					} else {
-						centerVertex = tile.vertices[0];
-						eastVertex = tile.vertices[2];
-					};
+				} else if (tile.vertices[1].z == tile.vertices[2].z && tile.vertices[0].z == tile.vertices[2].z) {
+					tile.color = 'rgb(50%,50%,100%)';
+					red = 50;
+					green = 50;
+					blue = 100;
 				} else {
-					westVertex = tile.vertices[2];
-					if (tile.vertices[1] > tile.vertices[0]) {
-						eastVertex = tile.vertices[1];
-						centerVertex = tile.vertices[0];
-					} else {
-						centerVertex = tile.vertices[1];
-						eastVertex = tile.vertices[0];
+					var red = 100, green = 90, blue = 80;
+					var precipitationFactor = tile.precipitation / 10;
+					red -= 90 * precipitationFactor;
+					green -= 40 * precipitationFactor;
+					blue -= 60 * precipitationFactor;
+				};
+				if (tile.z > 0) {
+					if (tile.temperature < 0) {
+						var temperatureFactor = Math.min(tile.temperature * -10,100);
+						red = (red * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
+						green = (green * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
+						blue = (blue * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
+						if (tile.vertices[1].z == tile.vertices[2].z && tile.vertices[0].z == tile.vertices[2].z) {
+							red = Math.min(red,90);
+							green = Math.min(green,90);
+							blue = Math.min(blue,99);
+						};
 					};
+					var eastVertex, centerVertex, westVertex;
+					if (tile.vertices[0].x < tile.vertices[1].x && tile.vertices[0].x < tile.vertices[2].x) {
+						westVertex = tile.vertices[0];
+						if (tile.vertices[1] > tile.vertices[2]) {
+							eastVertex = tile.vertices[1];
+							centerVertex = tile.vertices[2];
+						} else {
+							centerVertex = tile.vertices[1];
+							eastVertex = tile.vertices[2];
+						};
+					} else if (tile.vertices[1].x < tile.vertices[0].x && tile.vertices[1].x < tile.vertices[2].x) {
+						westVertex = tile.vertices[1];
+						if (tile.vertices[0] > tile.vertices[2]) {
+							eastVertex = tile.vertices[0];
+							centerVertex = tile.vertices[2];
+						} else {
+							centerVertex = tile.vertices[0];
+							eastVertex = tile.vertices[2];
+						};
+					} else {
+						westVertex = tile.vertices[2];
+						if (tile.vertices[1] > tile.vertices[0]) {
+							eastVertex = tile.vertices[1];
+							centerVertex = tile.vertices[0];
+						} else {
+							centerVertex = tile.vertices[1];
+							eastVertex = tile.vertices[0];
+						};
+					};
+					var slope = Math.max(0.95,Math.min(1.05,westVertex.z/eastVertex.z));
+					var slope = westVertex.z - eastVertex.z;
+					if (isNaN(slope) || slope == Infinity) {
+						slope = 0;
+					};
+					tile.slope = slope;
+					red += slope;
+					green += slope;
+					blue += slope;
+					red = Math.min(100,red);
+					green = Math.min(100,green);
+					blue = Math.min(100,blue);
+					tile.color = 'rgb('+red+'%,'+green+'%,'+blue+'%)';
 				};
-				var slope = Math.max(0.95,Math.min(1.05,westVertex.z/eastVertex.z));
-				var slope = westVertex.z - eastVertex.z;
-				if (isNaN(slope) || slope == Infinity) {
-					slope = 0;
-				};
-				tile.slope = slope;
-				red += slope;
-				green += slope;
-				blue += slope;
-				red = Math.min(100,red);
-				green = Math.min(100,green);
-				blue = Math.min(100,blue);
-				tile.color = 'rgb('+red+'%,'+green+'%,'+blue+'%)';
 			};
 			polygon.setAttribute('fill',tile.color);
 			polygon.setAttribute('stroke',tile.color);
+			polygon.setAttribute('stroke-width',0.5);
 			polygon.setAttribute('stroke-linecap','round');
-// 			polygon.setAttribute('stroke','grey');
 			var tileVertices = '';
 			for (v of tile.vertices) {
 				tileVertices += v.x + ',' + v.y + ' ';
@@ -182,11 +189,22 @@ var view = {
 			tile.polygon = polygon;
 			polygon.addEventListener('click',view.displayDetails.bind(this,tile));
 		};
+		console.timeEnd('tile rendering');
+		for (var v of map.vertices) {
+			var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+			circle.setAttribute('cx',v.x);
+			circle.setAttribute('cy',v.y);
+			circle.setAttribute('r',5);
+			circle.setAttribute('fill',v.plate.color);
+// 			mapSVG.appendChild(circle);
+		};
+		console.time('cursor');
 		if (view.focus.tile !== undefined) {
 			for (var n of view.focus.tile.adjacent) {
 				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
 				polygon.setAttribute('fill','none');
 				polygon.setAttribute('stroke','yellow');
+				polygon.setAttribute('stroke-linecap','round');
 				var tileVertices = '';
 				for (v of n.vertices) {
 					tileVertices += v.x + ',' + v.y + ' ';
@@ -196,6 +214,7 @@ var view = {
 			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
 			polygon.setAttribute('fill','none');
 			polygon.setAttribute('stroke','red');
+			polygon.setAttribute('stroke-linecap','round');
 			var tileVertices = '';
 			for (v of view.focus.tile.vertices) {
 				tileVertices += v.x + ',' + v.y + ' ';
@@ -204,6 +223,8 @@ var view = {
 			mapSVG.appendChild(polygon);
 			};
 		};
+		console.timeEnd('cursor');
+		console.time('rivers rendering');
 		for (var edge of map.edges) {
 			if (edge.drainage > 0 || edge.topVertex.z == edge.bottomVertex.z) {
 				var line = document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -234,6 +255,7 @@ var view = {
 				};
 			};
 		};
+		console.timeEnd('rivers rendering');
 		var latitudes = []; // was 0,30,-30,60,-60
 		for (latitude of latitudes) {
 			latitude = (Math.sin(latitude * Math.PI / 180) * map.sizeY - map.sizeY ) / -2;
@@ -246,6 +268,7 @@ var view = {
 			mapSVG.appendChild(line);
 		};
 		console.timeEnd('render');
+		console.log(map.tiles.length + ' tiles');
 	},
 	
 	riverWidth: function(drainage,map) {
@@ -255,7 +278,7 @@ var view = {
 	displayDetails: function(tile) {
 		console.log(tile);
 		view.focus.tile = tile;
-		view.renderMap(map);
+// 		view.renderMap(map);
 		var detailsDiv = document.getElementById('detailsDiv');
 		detailsDiv.innerHTML = '';
 		var tileHead = document.createElement('h3');
@@ -279,6 +302,9 @@ var view = {
 		var slopeP = document.createElement('p');
 		slopeP.innerHTML = "Slope: " + tile.slope;
 		detailsDiv.appendChild(slopeP);
+		var biomeP = document.createElement('p');
+		biomeP.innerHTML = "Biome: " + tile.biome;
+		detailsDiv.appendChild(biomeP);
 // 		var letters = ['A','B','C'];
 // 		for (var key of ['downhill','slope','precipitation','z']) {
 // 			var tileP = document.createElement('p');
