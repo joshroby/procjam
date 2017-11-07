@@ -14,6 +14,58 @@ var view = {
 		}
 	},
 	
+	pageContents: function() {
+		var pageContents = [];
+		var controlsDiv = document.createElement('div');
+		controlsDiv.id = 'controlsDiv';
+		pageContents.push(controlsDiv);
+		var newMapHead = document.createElement('h3');
+		newMapHead.innerHTML = 'New Map';
+		controlsDiv.appendChild(newMapHead);
+		for (var slider of ['resolution','impacts','tectonics','wetness','orbit']) {
+			var sliderP = document.createElement('p');
+			sliderP.innerHTML = slider;
+			controlsDiv.appendChild(sliderP);
+			var newSlider = document.createElement('input');
+			newSlider.id = slider + 'Input';
+			newSlider.setAttribute('type','range');
+			newSlider.setAttribute('min',1);
+			newSlider.setAttribute('max',10);
+			newSlider.setAttribute('value',5);
+			sliderP.appendChild(newSlider);
+		};
+		var newMapBtn = document.createElement('button');
+		newMapBtn.innerHTML = 'Generate New Map';
+		newMapBtn.setAttribute('onclick','handlers.newMap()');
+		controlsDiv.appendChild(newMapBtn);
+		var detailsDiv = document.createElement('div');
+		detailsDiv.id = 'detailsDiv';
+		controlsDiv.appendChild(detailsDiv);
+		var mapControlsDiv = document.createElement('div');
+		controlsDiv.appendChild(mapControlsDiv);
+		var mapControlsHead = document.createElement('h3');
+		mapControlsHead.innerHTML = "Map Controls";
+		mapControlsDiv.appendChild(mapControlsHead);
+		for (var btn of ['plates','biome','physical']) {
+			var newBtn = document.createElement('button');
+			newBtn.innerHTML = btn;
+			newBtn.setAttribute('onclick','view.toggleMap("'+btn+'")');
+			mapControlsDiv.appendChild(newBtn);
+		};
+		var saveMapDiv = document.createElement('div');
+		saveMapDiv.id = 'saveMapDiv';
+		controlsDiv.appendChild(saveMapDiv);
+		var mapDiv = document.createElement('div');
+		mapDiv.id = 'mapDiv';
+		pageContents.push(mapDiv);
+		var mapSVG = document.createElementNS('http://www.w3.org/2000/svg','svg');
+		mapSVG.id = 'mapSVG';
+		mapDiv.appendChild(mapSVG);
+		
+	
+		return pageContents;
+	},
+	
 	zoom: function(e) {
 		var zoomFactor = e.deltaY;
 		if (view.currentZoom.z == 1 && zoomFactor > 0) {
@@ -65,140 +117,113 @@ var view = {
 	mapDragEnd: function(e) {
 		view.currentZoom.dragging = false;
 	},
-
-
-	load: function() {
-		console.log('loading');
-		map = new Map();
-		view.currentZoom.viewBox.width = map.sizeX;
-		view.currentZoom.viewBox.height = map.sizeY;
-		console.log(map);
-		view.renderMap(map);
+	
+	toggleMap: function(type) {
+		for (var i of ['biome','physical','plates']) {
+			document.getElementById(i+'Group').setAttribute('visibility','hidden');
+		};
+		if (type == 'biome') {
+			document.getElementById('biomeGroup').setAttribute('visibility','visible');
+		} else if (type == 'physical') {
+			document.getElementById('physicalGroup').setAttribute('visibility','visible');
+		} else if (type == 'plates') {
+			document.getElementById('physicalGroup').setAttribute('visibility','visible');
+			document.getElementById('platesGroup').setAttribute('visibility','visible');
+		};
 	},
 
 	renderMap: function(map) {
-		console.time('render');
 		view.map = map;
 		
+		detailsDiv = document.getElementById('detailsDiv').innerHTML = ''
+
 		var mapSVG = document.getElementById('mapSVG');
+		mapSVG.innerHTML = '';
 		var viewBoxString = view.currentZoom.viewBox.minX + ' ' + view.currentZoom.viewBox.minY + ' ' + view.currentZoom.viewBox.width + ' ' + view.currentZoom.viewBox.height;
 		mapSVG.setAttribute('viewBox',viewBoxString);
-		
-		mapSVG.style.width = map.sizeX;
-		mapSVG.style.z = map.sizeY;
-		
+				
 		mapSVG.addEventListener('mousedown',view.mapDragStart);
 		mapSVG.addEventListener('mousemove',view.mapDragGo);
 		mapSVG.addEventListener('mouseup',view.mapDragEnd);
 		mapSVG.addEventListener('mouseleave',view.mapDragEnd);
-		
+
 		mapSVG.addEventListener('wheel',view.zoom);
 		
-		var tileGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
-		mapSVG.appendChild(tileGroup);
+		var defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+		mapSVG.appendChild(defs);
+		var marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+		defs.appendChild(marker);
+		marker.setAttribute('id','arrowhead');
+		marker.setAttribute('viewBox','0 0 5 5');
+		marker.setAttribute('refX',1);
+		marker.setAttribute('refY',2.5);
+		marker.setAttribute('markerWidth',2);
+		marker.setAttribute('markerHeight',2);
+		marker.setAttribute('orient','auto');
+		var path = document.createElementNS('http://www.w3.org/2000/svg','path');
+		marker.appendChild(path);
+		path.setAttribute('d','M 0 0 L 5 2.5 L 0 5 z');
 		
-		console.time('tile rendering');
+		var biomeGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		biomeGroup.id = 'biomeGroup';
+		mapSVG.appendChild(biomeGroup);
+		var physicalGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		physicalGroup.id = 'physicalGroup';
+		mapSVG.appendChild(physicalGroup);
+		var riverGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		riverGroup.id = 'riverGroup';
+		mapSVG.appendChild(riverGroup);
+		var platesGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		platesGroup.id = 'platesGroup';
+		platesGroup.setAttribute('visibility','hidden');
+		platesGroup.setAttribute('opacity',1);
+		mapSVG.appendChild(platesGroup);
+		
 		for (tile of map.tiles) {
-			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-			tileGroup.appendChild(polygon);
-			if (tile.color == undefined) {
-				if (tile.ice) {
-					var red = 95,green = 95,blue= 99;
-				} else if (tile.z <= 0) {
-					if (tile.temperature > -2) {
-						var depth = 50 - Math.max(-10,tile.z) * -5;
-						tile.color = 'rgb('+depth+'%,'+depth+'%,100%)';
-					};
-				} else if (tile.vertices[1].z == tile.vertices[2].z && tile.vertices[0].z == tile.vertices[2].z) {
-					tile.color = 'rgb(50%,50%,100%)';
-					red = 50;
-					green = 50;
-					blue = 100;
-				} else {
-					var red = 100, green = 90, blue = 80;
-					var precipitationFactor = tile.precipitation / 10;
-					red -= 90 * precipitationFactor;
-					green -= 40 * precipitationFactor;
-					blue -= 60 * precipitationFactor;
+			for (var tileType of ['biome','physical']) {
+				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+				var tileColor;
+				if (tileType == 'biome') {
+					tileColor = tile.biomeColor;
+					biomeGroup.appendChild(polygon);
+				} else if (tileType == 'physical') {
+					tileColor = tile.physicalColor;
+					physicalGroup.appendChild(polygon);
 				};
-				if (tile.z > 0) {
-					if (tile.temperature < 0) {
-						var temperatureFactor = Math.min(tile.temperature * -10,100);
-						red = (red * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-						green = (green * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-						blue = (blue * (100-temperatureFactor) + 100 * temperatureFactor) / 100;
-						if (tile.vertices[1].z == tile.vertices[2].z && tile.vertices[0].z == tile.vertices[2].z) {
-							red = Math.min(red,90);
-							green = Math.min(green,90);
-							blue = Math.min(blue,99);
-						};
-					};
-					var eastVertex, centerVertex, westVertex;
-					if (tile.vertices[0].x < tile.vertices[1].x && tile.vertices[0].x < tile.vertices[2].x) {
-						westVertex = tile.vertices[0];
-						if (tile.vertices[1] > tile.vertices[2]) {
-							eastVertex = tile.vertices[1];
-							centerVertex = tile.vertices[2];
-						} else {
-							centerVertex = tile.vertices[1];
-							eastVertex = tile.vertices[2];
-						};
-					} else if (tile.vertices[1].x < tile.vertices[0].x && tile.vertices[1].x < tile.vertices[2].x) {
-						westVertex = tile.vertices[1];
-						if (tile.vertices[0] > tile.vertices[2]) {
-							eastVertex = tile.vertices[0];
-							centerVertex = tile.vertices[2];
-						} else {
-							centerVertex = tile.vertices[0];
-							eastVertex = tile.vertices[2];
-						};
-					} else {
-						westVertex = tile.vertices[2];
-						if (tile.vertices[1] > tile.vertices[0]) {
-							eastVertex = tile.vertices[1];
-							centerVertex = tile.vertices[0];
-						} else {
-							centerVertex = tile.vertices[1];
-							eastVertex = tile.vertices[0];
-						};
-					};
-					var slope = Math.max(0.95,Math.min(1.05,westVertex.z/eastVertex.z));
-					var slope = westVertex.z - eastVertex.z;
-					if (isNaN(slope) || slope == Infinity) {
-						slope = 0;
-					};
-					tile.slope = slope;
-					red += slope;
-					green += slope;
-					blue += slope;
-					red = Math.min(100,red);
-					green = Math.min(100,green);
-					blue = Math.min(100,blue);
-					tile.color = 'rgb('+red+'%,'+green+'%,'+blue+'%)';
+				polygon.setAttribute('fill',tileColor);
+				polygon.setAttribute('stroke',tileColor);
+				polygon.setAttribute('stroke-width',0.5);
+				polygon.setAttribute('stroke-linecap','round');
+				var tileVertices = '';
+				for (v of tile.vertices) {
+					tileVertices += v.x + ',' + v.y + ' ';
 				};
+				polygon.setAttribute('points',tileVertices);
+				polygon.addEventListener('click',view.displayDetails.bind(this,tile));
 			};
-			polygon.setAttribute('fill',tile.color);
-			polygon.setAttribute('stroke',tile.color);
-			polygon.setAttribute('stroke-width',0.5);
-			polygon.setAttribute('stroke-linecap','round');
-			var tileVertices = '';
-			for (v of tile.vertices) {
-				tileVertices += v.x + ',' + v.y + ' ';
-			};
-			polygon.setAttribute('points',tileVertices);
-			tile.polygon = polygon;
-			polygon.addEventListener('click',view.displayDetails.bind(this,tile));
 		};
-		console.timeEnd('tile rendering');
 		for (var v of map.vertices) {
+			var plateVector = document.createElementNS('http://www.w3.org/2000/svg','g');
+			platesGroup.appendChild(plateVector);
 			var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
 			circle.setAttribute('cx',v.x);
 			circle.setAttribute('cy',v.y);
 			circle.setAttribute('r',5);
-			circle.setAttribute('fill',v.plate.color);
-// 			mapSVG.appendChild(circle);
+			circle.setAttribute('fill','none');
+			circle.setAttribute('stroke',v.plate.color);
+			plateVector.appendChild(circle);
+			var line = document.createElementNS('http://www.w3.org/2000/svg','line');
+			line.setAttribute('x1',v.x - v.plate.dx * 5);
+			line.setAttribute('y1',v.y - v.plate.dy * 5);
+			line.setAttribute('x2',v.x + v.plate.dx * 5);
+			line.setAttribute('y2',v.y + v.plate.dy * 5);
+			line.setAttribute('marker-end','url(#arrowhead)');
+			line.setAttribute('stroke','black');
+			line.setAttribute('stroke-width',2);
+			plateVector.appendChild(line);
+			var scaleFactor = map.step/12;
+			plateVector.setAttribute('transform','translate('+(-v.x*(scaleFactor-1))+','+(-v.y*(scaleFactor-1))+') scale('+scaleFactor+')');
 		};
-		console.time('cursor');
 		if (view.focus.tile !== undefined) {
 			for (var n of view.focus.tile.adjacent) {
 				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
@@ -223,16 +248,22 @@ var view = {
 			mapSVG.appendChild(polygon);
 			};
 		};
-		console.timeEnd('cursor');
-		console.time('rivers rendering');
 		for (var edge of map.edges) {
-			if (edge.drainage > 0 || edge.topVertex.z == edge.bottomVertex.z) {
+			if ((edge.drainage > 0 || edge.topVertex.z == edge.bottomVertex.z) && (edge.topVertex.y > map.sizeY * 0.01 && edge.topVertex.y < map.sizeY * 0.99)) {
 				var line = document.createElementNS('http://www.w3.org/2000/svg','line');
-				if (edge.tiles.length == 2 && (edge.tiles[0].temperature > -2 || edge.tiles[1].temperature > -2)) {
-					line.setAttribute('stroke','rgb(50%,50%,100%)');
+				var edgeTemperature;
+				if (edge.tiles[0] !== undefined && edge.tiles[1] !== undefined) {
+					edgeTemperature = (edge.tiles[0].temperature+edge.tiles[1].temperature)/2
+				} else if (edge.tiles[0] !== undefined) {
+					edgeTemperature = edge.tiles[0].temperature;
+				} else if (edge.tiles[0] !== undefined) {
+					edgeTemperature = edge.tiles[1].temperature;
 				} else {
-					line.setAttribute('stroke','rgb(90%,90%,99%)');
+					edgeTemperature = 100;
 				};
+				var light = Math.min(Math.max(66,edgeTemperature * -3 + 90),90);
+				var hue = 200, saturation = 40;
+				line.setAttribute('stroke','hsl('+hue+','+saturation+'%,'+light+'%)');
 				line.setAttribute('stroke-linecap','round');
 				line.setAttribute('x2',edge.bottomVertex.x);
 				line.setAttribute('y2',edge.bottomVertex.y);
@@ -245,17 +276,16 @@ var view = {
 						line.setAttribute('x1',edge.topVertex.x);
 						line.setAttribute('y1',edge.topVertex.y);
 					};
-					tileGroup.appendChild(line);
+					riverGroup.appendChild(line);
 				};
 				if (edge.topVertex.z !== 0 && edge.topVertex.z == edge.bottomVertex.z) { // basin edge
 					line.setAttribute('stroke-width',view.riverWidth(edge.bottomVertex.downhill.drainage,map));
 					line.setAttribute('x1',edge.topVertex.x);
 					line.setAttribute('y1',edge.topVertex.y);
-					tileGroup.appendChild(line);
+					riverGroup.appendChild(line);
 				};
 			};
 		};
-		console.timeEnd('rivers rendering');
 		var latitudes = []; // was 0,30,-30,60,-60
 		for (latitude of latitudes) {
 			latitude = (Math.sin(latitude * Math.PI / 180) * map.sizeY - map.sizeY ) / -2;
@@ -267,8 +297,6 @@ var view = {
 			line.setAttribute('stroke','yellow');
 			mapSVG.appendChild(line);
 		};
-		console.timeEnd('render');
-		console.log(map.tiles.length + ' tiles');
 	},
 	
 	riverWidth: function(drainage,map) {
@@ -278,63 +306,46 @@ var view = {
 	displayDetails: function(tile) {
 		console.log(tile);
 		view.focus.tile = tile;
-// 		view.renderMap(map);
 		var detailsDiv = document.getElementById('detailsDiv');
 		detailsDiv.innerHTML = '';
 		var tileHead = document.createElement('h3');
 		tileHead.innerHTML = 'Tile';
 		detailsDiv.appendChild(tileHead);
-		var latitudeP = document.createElement('p');
-		latitudeP.innerHTML = "Latitude: " + tile.latitude;
-		detailsDiv.appendChild(latitudeP);
+		var longitude = 360 * (map.sizeX / 2 - tile.x)/map.sizeX;
+		var coordinatesP = document.createElement('p');
+		coordinatesP.innerHTML = "Coordinates: (" + Math.abs(Math.round(longitude));
+		if (longitude > 0) {
+			coordinatesP.innerHTML += ' W,';
+		} else {
+			coordinatesP.innerHTML += ' E,';
+		};
+		coordinatesP.innerHTML += ' ' + Math.abs(Math.round(tile.latitude));
+		if (tile.latitude < 0) {
+			coordinatesP.innerHTML += ' S)';
+		} else {
+			coordinatesP.innerHTML += ' N)';
+		};
+		detailsDiv.appendChild(coordinatesP);
 		var elevationP = document.createElement('p');
-		elevationP.innerHTML = "Elevation: " + tile.z;
+		if (tile.z > 0) {
+			elevationP.innerHTML = 'Elevation: ';
+		} else {
+			elevationP.innerHTML = 'Depth: ';
+		};
+		elevationP.innerHTML += Math.round(tile.z * 500) + 'm';
 		detailsDiv.appendChild(elevationP);
 		var pressureP = document.createElement('p');
-		pressureP.innerHTML = "Atmo Pressure: " + tile.pressure;
+		pressureP.innerHTML = "Atmo Pressure: " + Math.round(1000 + tile.pressure * 100) + 'hPa';
 		detailsDiv.appendChild(pressureP);
 		var precipitationP = document.createElement('p');
-		precipitationP.innerHTML = "Precipitation: " + tile.precipitation + 'mm/day (avg)';
+		precipitationP.innerHTML = "Precipitation: " + Math.round(tile.precipitation*100)/100 + 'mm/day (avg)';
 		detailsDiv.appendChild(precipitationP);
 		var temperatureP = document.createElement('p');
-		temperatureP.innerHTML = "Temperature: " + tile.temperature + ' celsius';
+		temperatureP.innerHTML = "Temperature: " + Math.round(tile.temperature*100)/100 + ' celsius';
 		detailsDiv.appendChild(temperatureP);
-		var slopeP = document.createElement('p');
-		slopeP.innerHTML = "Slope: " + tile.slope;
-		detailsDiv.appendChild(slopeP);
 		var biomeP = document.createElement('p');
 		biomeP.innerHTML = "Biome: " + tile.biome;
 		detailsDiv.appendChild(biomeP);
-// 		var letters = ['A','B','C'];
-// 		for (var key of ['downhill','slope','precipitation','z']) {
-// 			var tileP = document.createElement('p');
-// 			tileP.innerHTML = key + ' ' + tile[key];
-// // 			detailsDiv.appendChild(tileP);
-// 		};
-// 		for (v in tile.vertices) {
-// 			var vertexP = document.createElement('p');
-// 			vertexP.innerHTML = 'Vertex '+letters[v];
-// 			vertexP.innerHTML += '<br />x ' + tile.vertices[v].x;
-// 			vertexP.innerHTML += '<br />y ' + tile.vertices[v].y;
-// 			vertexP.innerHTML += '<br />z ' + tile.vertices[v].z;
-// 			detailsDiv.appendChild(vertexP);
-// 		};
-// 		for (e in tile.edges) {
-// 			var edgeName = letters[tile.vertices.indexOf(tile.edges[e].topVertex)] + letters[tile.vertices.indexOf(tile.edges[e].bottomVertex)];
-// 			var edgeP = document.createElement('p');
-// 			edgeP.innerHTML = 'Edge '+edgeName;
-// 			edgeP.innerHTML += '<br />(' + Math.round(tile.edges[e].topVertex.x) + ',' + Math.round(tile.edges[e].topVertex.y) + ') ' + Math.round(tile.edges[e].topVertex.z*100)/100;
-// 			edgeP.innerHTML += '<br />(' + Math.round(tile.edges[e].bottomVertex.x) + ',' + Math.round(tile.edges[e].bottomVertex.y) + ') ' + Math.round(tile.edges[e].bottomVertex.z*100)/100;
-// 			edgeP.innerHTML += '<br />Flow ' + tile.edges[e].drainage;
-// 			if (tile.edges[e].bottomVertex.downhill !== undefined) {
-// 				edgeP.innerHTML += '<br />Downhill (' + Math.round(tile.edges[e].bottomVertex.downhill.bottomVertex.x) + ',' + Math.round(tile.edges[e].bottomVertex.downhill.bottomVertex.y) + ') ' + tile.edges[e].bottomVertex.downhill.drainage + ' flow';
-// 			} else {
-// 				edgeP.innerHTML += '<br />Downhill undefined';
-// 			};
-// 			detailsDiv.appendChild(edgeP);
-// 		};
-// 		view.focus.tile = tile;
-// 		view.renderMap(map);
 	},
 	
 	displayVertex: function(v) {

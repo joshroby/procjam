@@ -4,17 +4,26 @@
 		<title>#procjam</title>
 		<link rel="stylesheet" href="style.css">
 		<script type="text/javascript" src="delaunay.js"></script>
+		<script type="text/javascript" src="handlers.js"></script>
 		<script type="text/javascript" src="model.js"></script>
 		<script type="text/javascript" src="view.js"></script>
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:creator" content="@joshroby" />
+		<meta property="og:image" content="http://joshroby.com/procjam/openGraphImage.png">
 	</head>
 
-	<body onload='view.load()'>
+	<body onload='handlers.load()'>
 	
 		<div id='detailsDiv'>
 		
 		</div>
-
-		<svg id='mapSVG'>
-		</svg>
+		
+		<div>
+			<svg id='mapSVG'>
+			</svg>
+			<button onclick='view.toggleMap("plates")'>Plates</button>
+			<button onclick='view.toggleMap("biome")'>Biomes</button>
+			<button onclick='view.toggleMap("physical")'>Physical</button>
+		</div>
 	</body>
 </html>

@@ -2,12 +2,21 @@ body {
 	cursor: default;
 	}
 
-#mapSVG {
-	float: right;
-	width: 100%;
+#controlsDiv {
+	float: left;
+	width: 20%;
+	}
+
+#mapDiv {
+	float: left;
 	border: solid 1px red;
+	width: 70%;
+	}
+
+#mapSVG {
+	width: 100%;
 	}
 
 #detailsDiv {
-	float: left;
+	height: 60%;
 	}
