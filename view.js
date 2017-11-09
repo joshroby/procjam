@@ -19,13 +19,19 @@ var view = {
 		var controlsDiv = document.createElement('div');
 		controlsDiv.id = 'controlsDiv';
 		pageContents.push(controlsDiv);
+		var newMapDiv = document.createElement('div');
+		controlsDiv.appendChild(newMapDiv);
 		var newMapHead = document.createElement('h3');
 		newMapHead.innerHTML = 'New Map';
-		controlsDiv.appendChild(newMapHead);
+		newMapHead.setAttribute('onclick','handlers.toggleDetails("newMap")');
+		newMapDiv.appendChild(newMapHead);
+		var newMapDetailsDiv = document.createElement('div');
+		newMapDetailsDiv.id = 'newMapDetailsDiv';
+		newMapDiv.appendChild(newMapDetailsDiv);
 		for (var slider of ['resolution','impacts','tectonics','wetness','orbit']) {
 			var sliderP = document.createElement('p');
 			sliderP.innerHTML = slider;
-			controlsDiv.appendChild(sliderP);
+			newMapDetailsDiv.appendChild(sliderP);
 			var newSlider = document.createElement('input');
 			newSlider.id = slider + 'Input';
 			newSlider.setAttribute('type','range');
@@ -37,7 +43,33 @@ var view = {
 		var newMapBtn = document.createElement('button');
 		newMapBtn.innerHTML = 'Generate New Map';
 		newMapBtn.setAttribute('onclick','handlers.newMap()');
-		controlsDiv.appendChild(newMapBtn);
+		newMapDetailsDiv.appendChild(newMapBtn);
+		var historyDiv = document.createElement('div');
+		historyDiv.id = 'historyDiv';
+		historyDiv.style.display = 'none';
+		controlsDiv.appendChild(historyDiv);
+		var historyHead = document.createElement('h3');
+		historyHead.innerHTML = 'History';
+		historyHead.setAttribute('onclick','handlers.toggleDetails("history")');
+		historyDiv.appendChild(historyHead);
+		var historyDetailsDiv = document.createElement('div');
+		historyDetailsDiv.id = 'historyDetailsDiv';
+		historyDiv.appendChild(historyDetailsDiv);
+		var generationBtn = document.createElement('button');
+		generationBtn.innerHTML = 'One Generation';
+		generationBtn.setAttribute('onclick','handlers.oneGeneration()');
+		historyDetailsDiv.appendChild(generationBtn);
+		var goBtn = document.createElement('button');
+		goBtn.innerHTML = 'Go';
+		goBtn.setAttribute('onclick','handlers.historyGo()');
+		historyDetailsDiv.appendChild(goBtn);
+		var stopBtn = document.createElement('button');
+		stopBtn.innerHTML = 'Stop';
+		stopBtn.setAttribute('onclick','handlers.historyStop()');
+		historyDetailsDiv.appendChild(stopBtn);
+		var generationsDiv = document.createElement('div');
+		generationsDiv.id = 'generationsDiv';
+		historyDetailsDiv.appendChild(generationsDiv);
 		var detailsDiv = document.createElement('div');
 		detailsDiv.id = 'detailsDiv';
 		controlsDiv.appendChild(detailsDiv);
@@ -45,16 +77,21 @@ var view = {
 		controlsDiv.appendChild(mapControlsDiv);
 		var mapControlsHead = document.createElement('h3');
 		mapControlsHead.innerHTML = "Map Controls";
+		mapControlsHead.setAttribute('onclick','handlers.toggleDetails("mapControls")');
 		mapControlsDiv.appendChild(mapControlsHead);
+		var mapControlsDetailsDiv = document.createElement('div');
+		mapControlsDetailsDiv.id = 'mapControlsDetailsDiv';
+		mapControlsDetailsDiv.style.display = 'none';
+		mapControlsDiv.appendChild(mapControlsDetailsDiv);
 		for (var btn of ['plates','biome','physical']) {
 			var newBtn = document.createElement('button');
-			newBtn.innerHTML = btn;
+			newBtn.innerHTML = btn.charAt(0).toUpperCase() + btn.slice(1);
 			newBtn.setAttribute('onclick','view.toggleMap("'+btn+'")');
-			mapControlsDiv.appendChild(newBtn);
+			mapControlsDetailsDiv.appendChild(newBtn);
 		};
 		var saveMapDiv = document.createElement('div');
 		saveMapDiv.id = 'saveMapDiv';
-		controlsDiv.appendChild(saveMapDiv);
+		mapControlsDetailsDiv.appendChild(saveMapDiv);
 		var mapDiv = document.createElement('div');
 		mapDiv.id = 'mapDiv';
 		pageContents.push(mapDiv);
@@ -132,7 +169,7 @@ var view = {
 		};
 	},
 
-	renderMap: function(map) {
+	compileMap: function(map) {
 		view.map = map;
 		
 		detailsDiv = document.getElementById('detailsDiv').innerHTML = ''
@@ -178,6 +215,17 @@ var view = {
 		platesGroup.setAttribute('visibility','hidden');
 		platesGroup.setAttribute('opacity',1);
 		mapSVG.appendChild(platesGroup);
+		var languagesGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		languagesGroup.id = 'languagesGroup';
+		languagesGroup.setAttribute('visibility','hidden');
+		languagesGroup.setAttribute('opacity',0.5);
+		mapSVG.appendChild(languagesGroup);
+		var highlightGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		highlightGroup.id = 'highlightGroup';
+		mapSVG.appendChild(highlightGroup);
+		var uiGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		uiGroup.id = 'uiGroup';
+		mapSVG.appendChild(uiGroup);
 		
 		for (tile of map.tiles) {
 			for (var tileType of ['biome','physical']) {
@@ -193,7 +241,7 @@ var view = {
 				polygon.setAttribute('fill',tileColor);
 				polygon.setAttribute('stroke',tileColor);
 				polygon.setAttribute('stroke-width',0.5);
-				polygon.setAttribute('stroke-linecap','round');
+				polygon.setAttribute('stroke-linejoin','round');
 				var tileVertices = '';
 				for (v of tile.vertices) {
 					tileVertices += v.x + ',' + v.y + ' ';
@@ -224,30 +272,30 @@ var view = {
 			var scaleFactor = map.step/12;
 			plateVector.setAttribute('transform','translate('+(-v.x*(scaleFactor-1))+','+(-v.y*(scaleFactor-1))+') scale('+scaleFactor+')');
 		};
-		if (view.focus.tile !== undefined) {
-			for (var n of view.focus.tile.adjacent) {
-				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-				polygon.setAttribute('fill','none');
-				polygon.setAttribute('stroke','yellow');
-				polygon.setAttribute('stroke-linecap','round');
-				var tileVertices = '';
-				for (v of n.vertices) {
-					tileVertices += v.x + ',' + v.y + ' ';
-				};
-				polygon.setAttribute('points',tileVertices);
-				mapSVG.appendChild(polygon);
-			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-			polygon.setAttribute('fill','none');
-			polygon.setAttribute('stroke','red');
-			polygon.setAttribute('stroke-linecap','round');
-			var tileVertices = '';
-			for (v of view.focus.tile.vertices) {
-				tileVertices += v.x + ',' + v.y + ' ';
-			};
-			polygon.setAttribute('points',tileVertices);
-			mapSVG.appendChild(polygon);
-			};
-		};
+// 		if (view.focus.tile !== undefined) {
+// 			for (var n of view.focus.tile.adjacent) {
+// 				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+// 				polygon.setAttribute('fill','none');
+// 				polygon.setAttribute('stroke','yellow');
+// 				polygon.setAttribute('stroke-linejoin','round');
+// 				var tileVertices = '';
+// 				for (v of n.vertices) {
+// 					tileVertices += v.x + ',' + v.y + ' ';
+// 				};
+// 				polygon.setAttribute('points',tileVertices);
+// 				mapSVG.appendChild(polygon);
+// 			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+// 			polygon.setAttribute('fill','none');
+// 			polygon.setAttribute('stroke','red');
+// 			polygon.setAttribute('stroke-linejoin','round');
+// 			var tileVertices = '';
+// 			for (v of view.focus.tile.vertices) {
+// 				tileVertices += v.x + ',' + v.y + ' ';
+// 			};
+// 			polygon.setAttribute('points',tileVertices);
+// 			mapSVG.appendChild(polygon);
+// 			};
+// 		};
 		for (var edge of map.edges) {
 			if ((edge.drainage > 0 || edge.topVertex.z == edge.bottomVertex.z) && (edge.topVertex.y > map.sizeY * 0.01 && edge.topVertex.y < map.sizeY * 0.99)) {
 				var line = document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -286,6 +334,16 @@ var view = {
 				};
 			};
 		};
+		for (tile of map.tiles) {
+			if (tile.populations !== undefined) {
+				var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+				circle.setAttribute('cx',tile.x);
+				circle.setAttribute('cy',tile.y);
+				circle.setAttribute('r',5);
+				circle.setAttribute('fill',tile.populations[0].languages[0].language.color);
+				languagesGroup.appendChild(circle);
+			};
+		};
 		var latitudes = []; // was 0,30,-30,60,-60
 		for (latitude of latitudes) {
 			latitude = (Math.sin(latitude * Math.PI / 180) * map.sizeY - map.sizeY ) / -2;
@@ -303,14 +361,68 @@ var view = {
 		return Math.min(drainage * 0.0075 * map.step,map.step * 0.25);
 	},
 	
+	details: {
+		mapControls: false,
+	},
+	
+	toggleDetails: function(section) {
+		var div = document.getElementById(section+'DetailsDiv');
+		if (view.details[section] == undefined) {
+			view.details[section] = false;
+			div.style.display = 'none';
+		} else if (view.details[section]) {
+			view.details[section] = false;
+			div.style.display = 'none';
+		} else {
+			view.details[section] = true;
+			div.style.display = 'block';
+		};
+	},
+	
+	displayCursor: function(tile) {
+		var uiGroup = document.getElementById('uiGroup');
+		uiGroup.innerHTML = '';
+		for (var n of view.focus.tile.adjacent) {
+			var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+			polygon.setAttribute('fill','none');
+			polygon.setAttribute('stroke','yellow');
+			polygon.setAttribute('stroke-linejoin','round');
+			var tileVertices = '';
+			for (v of n.vertices) {
+				tileVertices += v.x + ',' + v.y + ' ';
+			};
+			polygon.setAttribute('points',tileVertices);
+			uiGroup.appendChild(polygon);
+		var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+		polygon.setAttribute('fill','none');
+		polygon.setAttribute('stroke','red');
+		polygon.setAttribute('stroke-linejoin','round');
+		var tileVertices = '';
+		for (v of view.focus.tile.vertices) {
+			tileVertices += v.x + ',' + v.y + ' ';
+		};
+		polygon.setAttribute('points',tileVertices);
+		uiGroup.appendChild(polygon);
+		};
+	},
+	
 	displayDetails: function(tile) {
 		console.log(tile);
 		view.focus.tile = tile;
+		view.displayCursor(tile);
 		var detailsDiv = document.getElementById('detailsDiv');
 		detailsDiv.innerHTML = '';
-		var tileHead = document.createElement('h3');
-		tileHead.innerHTML = 'Tile';
-		detailsDiv.appendChild(tileHead);
+		
+		// Geography
+		var geographyDiv = document.createElement('div');
+		detailsDiv.appendChild(geographyDiv);
+		var geographyHead = document.createElement('h3');
+		geographyHead.innerHTML = 'Geography';
+		geographyHead.setAttribute('onclick','handlers.toggleDetails("geography")');
+		geographyDiv.appendChild(geographyHead);
+		var geographyDetailsDiv = document.createElement('div');
+		geographyDetailsDiv.id = 'geographyDetailsDiv';
+		geographyDiv.appendChild(geographyDetailsDiv);
 		var longitude = 360 * (map.sizeX / 2 - tile.x)/map.sizeX;
 		var coordinatesP = document.createElement('p');
 		coordinatesP.innerHTML = "Coordinates: (" + Math.abs(Math.round(longitude));
@@ -325,7 +437,7 @@ var view = {
 		} else {
 			coordinatesP.innerHTML += ' N)';
 		};
-		detailsDiv.appendChild(coordinatesP);
+		geographyDetailsDiv.appendChild(coordinatesP);
 		var elevationP = document.createElement('p');
 		if (tile.z > 0) {
 			elevationP.innerHTML = 'Elevation: ';
@@ -333,25 +445,130 @@ var view = {
 			elevationP.innerHTML = 'Depth: ';
 		};
 		elevationP.innerHTML += Math.round(tile.z * 500) + 'm';
-		detailsDiv.appendChild(elevationP);
+		geographyDetailsDiv.appendChild(elevationP);
 		var pressureP = document.createElement('p');
 		pressureP.innerHTML = "Atmo Pressure: " + Math.round(1000 + tile.pressure * 100) + 'hPa';
-		detailsDiv.appendChild(pressureP);
+		geographyDetailsDiv.appendChild(pressureP);
 		var precipitationP = document.createElement('p');
 		precipitationP.innerHTML = "Precipitation: " + Math.round(tile.precipitation*100)/100 + 'mm/day (avg)';
-		detailsDiv.appendChild(precipitationP);
+		geographyDetailsDiv.appendChild(precipitationP);
 		var temperatureP = document.createElement('p');
 		temperatureP.innerHTML = "Temperature: " + Math.round(tile.temperature*100)/100 + ' celsius';
-		detailsDiv.appendChild(temperatureP);
+		geographyDetailsDiv.appendChild(temperatureP);
 		var biomeP = document.createElement('p');
 		biomeP.innerHTML = "Biome: " + tile.biome;
-		detailsDiv.appendChild(biomeP);
+		geographyDetailsDiv.appendChild(biomeP);
+		
+		// People
+		if (tile.populations !== undefined) {
+			var peopleDiv = document.createElement('div');
+			detailsDiv.appendChild(peopleDiv);
+			var peopleHead = document.createElement('h3');
+			peopleHead.innerHTML = "People";
+			peopleHead.setAttribute('onclick','handlers.toggleDetails("people")');
+			peopleDiv.appendChild(peopleHead);
+			var peopleDetailsDiv = document.createElement('div');
+			peopleDetailsDiv.id = 'peopleDetailsDiv';
+			peopleDiv.appendChild(peopleDetailsDiv);
+			for (var population of tile.populations) {
+				if (population.name !== undefined) {
+				};
+				var societyP = document.createElement('p');
+				peopleDetailsDiv.appendChild(societyP);
+				societyP.innerHTML = population.socialStructure + ' ' + population.foodCulture + ' society';
+				societyP.addEventListener('mouseover',view.displayHighlights.bind(view,population.range()));
+				if (population.livestock.length > 0) {
+					var livestockP = document.createElement('p');
+					livestockP.innerHTML = "Livestock: ";
+					peopleDetailsDiv.appendChild(livestockP);
+					for (var livestock of population.livestock) {
+						livestockP.innerHTML += livestock.name + " (" + livestock.use + "), ";
+					};
+				};
+				if (population.crops.length > 0) {
+					var cropsP = document.createElement('p');
+					cropsP.innerHTML = "Crops: ";
+					peopleDetailsDiv.appendChild(cropsP);
+					for (var crop of population.crops) {
+						cropsP.innerHTML += crop.name + " (" + crop.use + "), ";
+					};
+				};
+				var languagesP = document.createElement('p');
+				languagesP.innerHTML = "Languages: ";
+				for (var language of population.languages) {
+					languagesP.innerHTML += language.language.name + " (" +Math.round(language.percentage*10000)/100+ "%) ";
+				};
+				peopleDetailsDiv.appendChild(languagesP);
+				var conventionsP = document.createElement('p');
+				conventionsP.innerHTML = "Cultural Conventions: ";
+				var ranking = population.ranking();
+				var conventionList = [];
+				for (var target of ranking) {
+					for (var entry of population.conventions) {
+						if (entry.convention.target.replace(/ /g,"_") == target) {
+							conventionList.push(entry);
+						};
+					};
+				};
+				for (var convention of conventionList) {
+					conventionsP.innerHTML += '<br/>' + convention.convention.string + " ("+Math.round(convention.strength*10)+")";
+				};
+				peopleDetailsDiv.appendChild(conventionsP);
+			};
+		};
+		
+		// maintain detail display preferences
+		for (var section in view.details) {
+			if (view.details[section] == false) {
+				document.getElementById(section+'DetailsDiv').style.display = 'none';	
+			};
+		}
+	},
+	
+	displayEvents: function(eventList) {
+		var generationsDiv = document.getElementById('generationsDiv');
+		var nextGenerationDiv = document.createElement('div');
+		nextGenerationDiv.id = 'generation'+(map.history.record.length+1)+'Div';
+		nextGenerationDiv.className = 'nextGenerationDiv';
+		generationsDiv.appendChild(nextGenerationDiv);
+		var highlights = [];
+		if (eventList.length == 0) {
+			eventList = [new Event()];
+		};
+		for (var entry of eventList) {
+			var eventP = document.createElement('p');
+			eventP.innerHTML = entry.displayString();
+			eventP.addEventListener('mouseover',view.displayHighlights.bind(this,entry.tiles));
+			nextGenerationDiv.appendChild(eventP);
+			if (entry.tiles !== undefined) {highlights = highlights.concat(entry.tiles);};
+		};
+		generationsDiv.scrollTop = generationsDiv.scrollHeight;
+		view.displayHighlights(highlights);
+	},
+	
+	displayHighlights: function(highlights) {
+		if (highlights.length > 0 && highlights[0] !== undefined) {
+			var highlightGroup = document.getElementById('highlightGroup');
+			highlightGroup.innerHTML = '';
+			for (var tile of highlights) {
+				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+				polygon.setAttribute('fill','none');
+				polygon.setAttribute('stroke','cyan');
+				polygon.setAttribute('stroke-linejoin','round');
+				var tileVertices = '';
+				for (v of tile.vertices) {
+					tileVertices += v.x + ',' + v.y + ' ';
+				};
+				polygon.setAttribute('points',tileVertices);
+				highlightGroup.appendChild(polygon);
+			};
+		};
 	},
 	
 	displayVertex: function(v) {
 		console.log(v);
 		view.focus.vertex = v;
-		view.renderMap(map);
+		view.compileMap(map);
 	},
 };
 

@@ -8,6 +8,10 @@ var handlers = {
 		};
 		saveSVG(document.getElementById('mapSVG'),'map');
 	},
+	
+	toggleDetails: function(section) {
+		view.toggleDetails(section);
+	},
 
 	newMap: function() {
 // 		var sizeX = document.getElementById('sizeInput').value * 200;
@@ -98,7 +102,21 @@ var handlers = {
 
 	newMapColoring: function() {
 		map.physicalColor();
-		view.renderMap(map,'physical');
+		handlers.displayProgress('Peopling the Map...');
+		var timedEvent = setTimeout(handlers.newMapPeople,10);
+	},
+	
+	newMapPeople: function() {
+		map.people();
+		handlers.displayProgress('Finishing...');
+		var timedEvent = setTimeout(handlers.newMapFinish,10);
+	},
+	
+	newMapFinish: function() {
+		view.compileMap(map,'physical');
+		view.toggleDetails('newMap');
+		view.toggleDetails('mapControls');
+		document.getElementById('historyDiv').style.display = 'block';
 		document.getElementById('saveMapDiv').innerHTML = '';
 		saveSVG(document.getElementById('mapSVG'),'Save');
 	},
@@ -106,6 +124,19 @@ var handlers = {
 	displayProgress: function(message) {
 		var detailsDiv = document.getElementById('detailsDiv');
 		detailsDiv.innerHTML += '<p>' + message;
+	},
+	
+	oneGeneration: function() {
+		map.history.generation();
+	},
+	
+	historyGo: function() {
+		map.history.running = true;
+		map.history.generation();
+	},
+	
+	historyStop: function() {
+		map.history.running = false;
 	},
 
 };

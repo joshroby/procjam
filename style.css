@@ -4,7 +4,8 @@ body {
 
 #controlsDiv {
 	float: left;
-	width: 20%;
+	width: 25%;
+	height: 100%;
 	}
 
 #mapDiv {
@@ -18,5 +19,33 @@ body {
 	}
 
 #detailsDiv {
-	height: 60%;
+	}
+
+#controlsDiv h3 {
+	width: 90%;
+    background: lightgray; /* For browsers that do not support gradients */
+    background: -webkit-linear-gradient(left, lightgray, white); /* For Safari 5.1 to 6.0 */
+    background: -o-linear-gradient(right, lightgray, white); /* For Opera 11.1 to 12.0 */
+    background: -moz-linear-gradient(right, lightgray, white); /* For Firefox 3.6 to 15 */
+    background: linear-gradient(right, lightgray, white); /* Standard syntax */
+	}
+
+#controlsDiv div {
+	width: 90%;
+}
+
+#controlsDiv p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+	margin-left: 2em;
+	text-indent: -1em;
+	}
+
+#generationsDiv {
+	max-height: 30vh;
+	overflow-y: auto;
+	}
+
+.nextGenerationDiv {
+	border-top: 1px solid gray;
 	}
