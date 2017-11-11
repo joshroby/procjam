@@ -138,6 +138,11 @@ var handlers = {
 	historyStop: function() {
 		map.history.running = false;
 	},
+	
+	displayDetails: function(tile) {
+		console.log(tile);
+		view.displayDetails(tile);
+	},
 
 };
 

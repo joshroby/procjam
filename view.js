@@ -38,7 +38,7 @@ var view = {
 			newSlider.setAttribute('min',1);
 			newSlider.setAttribute('max',10);
 			newSlider.setAttribute('value',5);
-			sliderP.appendChild(newSlider);
+			sliderP.prepend(newSlider);
 		};
 		var newMapBtn = document.createElement('button');
 		newMapBtn.innerHTML = 'Generate New Map';
@@ -83,7 +83,7 @@ var view = {
 		mapControlsDetailsDiv.id = 'mapControlsDetailsDiv';
 		mapControlsDetailsDiv.style.display = 'none';
 		mapControlsDiv.appendChild(mapControlsDetailsDiv);
-		for (var btn of ['plates','biome','physical']) {
+		for (var btn of ['plates','biome','physical','political']) {
 			var newBtn = document.createElement('button');
 			newBtn.innerHTML = btn.charAt(0).toUpperCase() + btn.slice(1);
 			newBtn.setAttribute('onclick','view.toggleMap("'+btn+'")');
@@ -156,7 +156,7 @@ var view = {
 	},
 	
 	toggleMap: function(type) {
-		for (var i of ['biome','physical','plates']) {
+		for (var i of ['biome','physical','plates','states']) {
 			document.getElementById(i+'Group').setAttribute('visibility','hidden');
 		};
 		if (type == 'biome') {
@@ -166,6 +166,9 @@ var view = {
 		} else if (type == 'plates') {
 			document.getElementById('physicalGroup').setAttribute('visibility','visible');
 			document.getElementById('platesGroup').setAttribute('visibility','visible');
+		} else if (type = 'political') {
+			document.getElementById('physicalGroup').setAttribute('visibility','visible');
+			document.getElementById('statesGroup').setAttribute('visibility','visible');
 		};
 	},
 
@@ -207,6 +210,9 @@ var view = {
 		var physicalGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
 		physicalGroup.id = 'physicalGroup';
 		mapSVG.appendChild(physicalGroup);
+		var statesGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
+		statesGroup.id = 'statesGroup';
+		mapSVG.appendChild(statesGroup);
 		var riverGroup = document.createElementNS('http://www.w3.org/2000/svg','g');
 		riverGroup.id = 'riverGroup';
 		mapSVG.appendChild(riverGroup);
@@ -228,7 +234,7 @@ var view = {
 		mapSVG.appendChild(uiGroup);
 		
 		for (tile of map.tiles) {
-			for (var tileType of ['biome','physical']) {
+			for (var tileType of ['biome','physical','states']) {
 				var polygon = document.createElementNS('http://www.w3.org/2000/svg','polygon');
 				var tileColor;
 				if (tileType == 'biome') {
@@ -237,6 +243,10 @@ var view = {
 				} else if (tileType == 'physical') {
 					tileColor = tile.physicalColor;
 					physicalGroup.appendChild(polygon);
+				} else if (tileType == 'states') {
+					tileColor = 'none';
+					polygon.id = 'tile_'+tile.id;
+					statesGroup.appendChild(polygon);
 				};
 				polygon.setAttribute('fill',tileColor);
 				polygon.setAttribute('stroke',tileColor);
@@ -247,7 +257,7 @@ var view = {
 					tileVertices += v.x + ',' + v.y + ' ';
 				};
 				polygon.setAttribute('points',tileVertices);
-				polygon.addEventListener('click',view.displayDetails.bind(this,tile));
+				polygon.addEventListener('click',handlers.displayDetails.bind(this,tile));
 			};
 		};
 		for (var v of map.vertices) {
@@ -334,16 +344,16 @@ var view = {
 				};
 			};
 		};
-		for (tile of map.tiles) {
-			if (tile.populations !== undefined) {
-				var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
-				circle.setAttribute('cx',tile.x);
-				circle.setAttribute('cy',tile.y);
-				circle.setAttribute('r',5);
-				circle.setAttribute('fill',tile.populations[0].languages[0].language.color);
-				languagesGroup.appendChild(circle);
-			};
-		};
+// 		for (tile of map.tiles) {
+// 			if (tile.populations !== undefined) {
+// 				var circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+// 				circle.setAttribute('cx',tile.x);
+// 				circle.setAttribute('cy',tile.y);
+// 				circle.setAttribute('r',5);
+// 				circle.setAttribute('fill',tile.populations[0].languages[0].language.color);
+// 				languagesGroup.appendChild(circle);
+// 			};
+// 		};
 		var latitudes = []; // was 0,30,-30,60,-60
 		for (latitude of latitudes) {
 			latitude = (Math.sin(latitude * Math.PI / 180) * map.sizeY - map.sizeY ) / -2;
@@ -355,6 +365,35 @@ var view = {
 			line.setAttribute('stroke','yellow');
 			mapSVG.appendChild(line);
 		};
+	},
+	
+// 	colorStateTile: function(tileID,state) {
+// 		var tile = document.getElementById('tile_'+tileID);
+// 		if (state == undefined) {state = {color:'none'};};
+// 		tile.setAttribute('fill',state.color);
+// 		tile.setAttribute('stroke',state.color);
+// 	},
+	
+	colorStateTile: function(tile) {
+		var color;
+		var polygon = document.getElementById('tile_'+tile.id);
+		var highestLoyalty = 0;
+		var loyalToState = undefined;
+		for (var pop of tile.populations) {
+			for (var entry of pop.states) {
+				if (entry.loyalty > highestLoyalty) {
+					highestLoyalty = entry.loyalty;
+					loyalToState = entry.state;
+				}
+			};
+		};
+		if (loyalToState == undefined) {
+			color = 'none';
+		} else {
+			color = loyalToState.color;
+		};
+		polygon.setAttribute('fill',color);
+		polygon.setAttribute('stroke',color);
 	},
 	
 	riverWidth: function(drainage,map) {
@@ -407,7 +446,6 @@ var view = {
 	},
 	
 	displayDetails: function(tile) {
-		console.log(tile);
 		view.focus.tile = tile;
 		view.displayCursor(tile);
 		var detailsDiv = document.getElementById('detailsDiv');
@@ -425,18 +463,7 @@ var view = {
 		geographyDiv.appendChild(geographyDetailsDiv);
 		var longitude = 360 * (map.sizeX / 2 - tile.x)/map.sizeX;
 		var coordinatesP = document.createElement('p');
-		coordinatesP.innerHTML = "Coordinates: (" + Math.abs(Math.round(longitude));
-		if (longitude > 0) {
-			coordinatesP.innerHTML += ' W,';
-		} else {
-			coordinatesP.innerHTML += ' E,';
-		};
-		coordinatesP.innerHTML += ' ' + Math.abs(Math.round(tile.latitude));
-		if (tile.latitude < 0) {
-			coordinatesP.innerHTML += ' S)';
-		} else {
-			coordinatesP.innerHTML += ' N)';
-		};
+		coordinatesP.innerHTML = "Coordinates: " + tile.coordinates;
 		geographyDetailsDiv.appendChild(coordinatesP);
 		var elevationP = document.createElement('p');
 		if (tile.z > 0) {
@@ -461,6 +488,7 @@ var view = {
 		
 		// People
 		if (tile.populations !== undefined) {
+			var states = [];
 			var peopleDiv = document.createElement('div');
 			detailsDiv.appendChild(peopleDiv);
 			var peopleHead = document.createElement('h3');
@@ -477,6 +505,9 @@ var view = {
 				peopleDetailsDiv.appendChild(societyP);
 				societyP.innerHTML = population.socialStructure + ' ' + population.foodCulture + ' society';
 				societyP.addEventListener('mouseover',view.displayHighlights.bind(view,population.range()));
+				var populationP = document.createElement('p');
+				peopleDetailsDiv.appendChild(populationP);
+				populationP.innerHTML = 'Population: ' + population.population;
 				if (population.livestock.length > 0) {
 					var livestockP = document.createElement('p');
 					livestockP.innerHTML = "Livestock: ";
@@ -514,13 +545,55 @@ var view = {
 					conventionsP.innerHTML += '<br/>' + convention.convention.string + " ("+Math.round(convention.strength*10)+")";
 				};
 				peopleDetailsDiv.appendChild(conventionsP);
+				for (var entry of population.states) {
+					if (states.indexOf(entry.state) == -1) {
+						states.push(entry.state);
+					};
+				};
+			};
+			
+			// States
+			if (states.length > 0) {
+				var statesDiv = document.createElement('div');
+				detailsDiv.appendChild(statesDiv);
+				var statesHead = document.createElement('h3');
+				statesHead.innerHTML = 'State';
+				if (states.length > 1) {statesHead.innerHTML += 's';};
+				statesHead.setAttribute('onclick','handlers.toggleDetails("states")');
+				statesDiv.appendChild(statesHead);
+				var statesDetailsDiv = document.createElement('div');
+				statesDetailsDiv.id = 'statesDetailsDiv';
+				statesDiv.appendChild(statesDetailsDiv);
+				for (var state of states) {
+					var stateDiv = document.createElement('div');
+					statesDetailsDiv.appendChild(stateDiv);
+					stateDiv.style.borderLeft = '10px solid ' + state.color;
+					var nameP = document.createElement('p');
+					nameP.innerHTML = state.name;
+					stateDiv.appendChild(nameP);
+					var stabilityP = document.createElement('p');
+					stabilityP.innerHTML = 'Stability: UNKNOWN';
+					stateDiv.appendChild(stabilityP);
+					var taxP = document.createElement('p');
+					taxP.innerHTML = 'Tax Rate: ' + Math.round(state.tax*100) + '%';
+					stateDiv.appendChild(taxP);
+					var treasuryP = document.createElement('p');
+					treasuryP.innerHTML = 'Treasury: ' + Math.round(state.treasury) + ' units';
+					stateDiv.appendChild(treasuryP);
+					var forcesP = document.createElement('p');
+					forcesP.innerHTML = 'Military Force: ' + Math.round(state.force());
+					stateDiv.appendChild(forcesP);
+				};
 			};
 		};
 		
 		// maintain detail display preferences
 		for (var section in view.details) {
 			if (view.details[section] == false) {
-				document.getElementById(section+'DetailsDiv').style.display = 'none';	
+				var div = document.getElementById(section+'DetailsDiv');
+				if (div) {
+					div.style.display = 'none';
+				};
 			};
 		}
 	},
