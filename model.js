@@ -643,6 +643,16 @@ function Population(tile) {
 	this.foodCulture = 'hunter-gatherer';
 	this.socialStructure = 'society';
 	
+	this.newStuff = {
+		population: 0,
+		languages: [],
+		conventions: [],
+		faiths: [],
+		states: [],
+		crops: [],
+		livestock: [],
+	};
+	
 	this.developConvention = function() {
 		var existingConventions = [];
 		for (var convention of this.conventions) {
@@ -795,7 +805,7 @@ function Population(tile) {
 			convention.strength *= Math.random() * 0.5 + 0.5;
 		};
 		
-		// eat / set foodCulture / pop gain
+		// calculate foodCulture / pop gain
 		var granaries = false;
 // 		var indYield = 0;
 		var stableCropYields = [], perishCropYields = [], huntingAssists = [], laborAssists = [], pestControlAssists = [], livestockYields = [];
@@ -872,7 +882,7 @@ function Population(tile) {
 			};
 		};
 		
-		this.population = Math.round(Math.min(biggestYield,this.population * 1.1));
+		this.newStuff.population = Math.round(Math.min(biggestYield,this.population * 1.1)) - this.population;
 		
 		// State Formation
 		if ((this.foodCulture == 'agrarian' || this.foodCulture == 'industrial') && granaries && this.states.length == 0) {
@@ -898,7 +908,7 @@ function Population(tile) {
 					type = 'breeding';
 				};
 				var crop = new Crop(this.tile,this,ancestor);
-				this.crops.push(crop);
+				this.newStuff.crops.push(crop);
 				resultArray.push(new Event([this.tile],this,type,[crop]));
 			} else {
 				var ancestor = undefined, type = 'domestication';
@@ -907,7 +917,7 @@ function Population(tile) {
 					type = 'breeding';
 				};
 				var livestock = new Livestock(this.tile,this,ancestor);
-				this.livestock.push(livestock);
+				this.newStuff.livestock.push(livestock);
 				resultArray.push(new Event([this.tile],this,type,[livestock]));
 			};
 		};
@@ -932,13 +942,19 @@ function Population(tile) {
 						languageImprovement = true;
 					};
 				};
-				if (languageImprovement == false  && contactLanguage.percentage > 0.3 ) {
-					this.languages.push({language:contactLanguage.language,percentage:0.01*Math.random()});
+				for (var language of this.newStuff.languages) {
+					if (language.language == contactLanguage.language) {
+						language.percentage = Math.min(1,language.percentage + Math.random() * 0.05);
+						languageImprovement = true;
+					};
+				};
+				if (languageImprovement == false  && contactLanguage.percentage > 0.3) {
+					this.newStuff.languages.push({language:contactLanguage.language,percentage:0.01*Math.random()});
 				};
 			
 				// Convention Diffusion
 				if (contactConvention == undefined) {
-					console.log('no convention on contact',contactPop);
+// 					console.log('no convention on contact',contactPop);
 				} else {
 					var conventionShareChance = 0.5;
 					var alreadyShared = false;
@@ -956,24 +972,38 @@ function Population(tile) {
 						};
 						if (convention.strength < 0.1) {this.conventions.splice(this.conventions.indexOf(convention),1);};
 					};
-					if (!alreadyShared && Math.random() < conventionShareChance/5) {
-						this.conventions.push({convention:contactConvention,strength:0.5 * Math.random()});
+					for (var convention of this.newStuff.conventions) {
+						if (this.newStuff.conventions.target == contactConvention.target && this.newStuff.conventions.assignation == contactConvention.assignation) {
+							convention.strength = Math.min(1,convention.strength + Math.random()*0.2);
+							conventionShareChance = 0;
+							alreadyShared = true;
+						};
 					};
-					if (this.conventions.length == 0) {this.conventions = [{convention:new Convention(),strength:0.1}];};
+					if (!alreadyShared && Math.random() < conventionShareChance/5) {
+						this.newStuff.conventions.push({convention:contactConvention,strength:0.5 * Math.random()});
+					};
 				};
 			
 				// Faith Diffusion Goes Here
 			
 				// Crops
-				if (contactCrop !== undefined && Math.random() < 0.3 && this.crops.indexOf(contactCrop) == -1 && contactCrop.temperatureRange[0] < this.tile.temperature && contactCrop.temperatureRange[1] > this.tile.temperature) {
-					this.crops.push(contactCrop);
+				if (contactCrop !== undefined && Math.random() < 0.3 && this.crops.indexOf(contactCrop) == -1 && this.newStuff.crops.indexOf(contactCrop) == -1 && contactCrop.temperatureRange[0] < this.tile.temperature && contactCrop.temperatureRange[1] > this.tile.temperature) {
+					this.newStuff.crops.push(contactCrop);
 				};
 			
 				// Livestock
-				if (contactLivestock !== undefined && Math.random() < 0.3 && this.livestock.indexOf(contactLivestock) == -1 && contactLivestock.temperatureRange[0] < this.tile.temperature && contactLivestock.temperatureRange[1] > this.tile.temperature) {
-					this.livestock.push(contactLivestock);
+				if (contactLivestock !== undefined && Math.random() < 0.3 && this.livestock.indexOf(contactLivestock) == -1 && this.newStuff.livestock.indexOf(contactLivestock) == -1 && contactLivestock.temperatureRange[0] < this.tile.temperature && contactLivestock.temperatureRange[1] > this.tile.temperature) {
+					this.newStuff.livestock.push(contactLivestock);
 				};
 			};
+		};
+		
+		if (this.livestock > this.population * 0.05) {
+// 			winnow down livestock; keep only the best 2-3 per category
+		};
+		
+		if (this.crops > this.population * 0.05) {
+// 			winnow down crops; keep only the best 4-5 per category
 		};
 		
 		if (this.population < 1) {
@@ -981,6 +1011,14 @@ function Population(tile) {
 		};
 		
 		return resultArray;
+	};
+	
+	this.gainNewStuff = function() {
+		this.population += this.newStuff.population;
+		for (var stuff of ['languages','conventions','faiths','states','crops','livestock']) {
+			this[stuff] = this[stuff].concat(this.newStuff[stuff]);
+			this.newStuff[stuff] = [];
+		};
 	};
 };
 
@@ -1107,6 +1145,7 @@ function State(population) {
 	this.treasury = 0;
 	this.tax = 0.05 + Math.random() * 0.2;
 	this.forces = 1;
+	this.losses = 0;
 	this.forceMultipliers = [];
 	this.territory = [population.tile];
 	
@@ -1131,9 +1170,7 @@ function State(population) {
 	};
 	
 	map.states.push(this);
-	population.states.push({state:this,loyalty:0.5});
-// 	population.tile.states.push(this);
-// 	view.colorStateTile(population.tile.id,this);
+	population.states.push({state:this,compliance:0.5});
 	view.colorStateTile(population.tile);
 	
 	this.force = function() {
@@ -1152,23 +1189,26 @@ function State(population) {
 		return frontier;
 	};
 	
-	this.generation = function() {
-		var resultArray = [];
-		
-		// Managing Forces
+	this.forcesUpdate = function() {
 		this.treasury -= this.forces;
+		this.forces -= Math.ceil(this.losses);
 		if (this.treasury > 0) {
 			this.forces += Math.floor(this.treasury * 0.1);
 		} else {
 			this.forces = Math.floor(this.forces * 0.75);
 		};
+		this.losses = 0;
+	};
+	
+	this.generation = function() {
+		var resultArray = [];
 		
-		// Increasing Loyalty
+		// Increasing compliance
 		for (var tile of this.territory) {
 			for (var pop of tile.populations) {
 				for (var entry of pop.states) {
 					if (entry.state == this) {
-						entry.loyalty += Math.random() * 0.1;
+						entry.compliance += Math.random() * 0.1;
 					};
 				};
 			};
@@ -1177,12 +1217,11 @@ function State(population) {
 		// Internal Colonization (including repopulating genocided tiles)
 		// Especially tiles with no agrarian society; send in farmers and seeds!
 		for (var tile of this.territory) {
-			if (this.forces > 20 && tile.populations.length == 0) {
-				this.forces -= 20;
+			if (this.forces - this.losses > 20 && tile.populations.length == 0) {
+				this.losses += 20;
 				var colonists = new Population(tile);
 				tile.populations.push(colonists);
-				colonists.states.push({state:this,loyalty:0.9});
-// 				view.colorStateTile(tile.id,this);
+				colonists.states.push({state:this,compliance:0.9});
 				view.colorStateTile(tile);
 				colonists.languages = [{language:this.founders.languages[Math.random() * this.founders.languages.length << 0].language,percentage:1}];
 				colonists.conventions = [];
@@ -1202,6 +1241,7 @@ function State(population) {
 		
 		// Squashing Dissent
 		var dissentingPops = [];
+		var genocidedTiles = [];
 		for (var tile of this.territory) {
 			for (var pop of tile.populations) {
 				if (pop.states.length > 1) {
@@ -1210,52 +1250,51 @@ function State(population) {
 			};
 		};
 		for (var pop of dissentingPops) {
-			pop.population -= this.force() * 0.1;
-			this.forces *= 0.95;
-			if (pop.population <= 0) {
-				resultArray.push(new Event([tile],this,'genocide'));
-				pop.tile.populations.splice(pop.tile.populations.indexOf(pop),1);
-// 				pop.tile.states = [];
-// 				for (var survivingPop of pop.tile.populations) {
-// 					for (var entry of survivingPop.states) {
-// 						pop.tile.states.push(entry.state);
-// 					};
-// 				};
-// 				view.colorStateTile(pop.tile.id,pop.tile.states[0]);
-				view.colorStateTile(pop.tile);
-			} else {
-				for (var entry of pop.states) {
-					if (entry.state !== this) {
-						entry.loyalty -= 0.1 * Math.random();
-						if (entry.loyalty <= 0) {
-							entry.state.territory.splice(entry.state.territory.indexOf(pop.tile),1);
-// 							pop.tile.states.splice(pop.tile.states.indexOf(entry.state),1);
-							pop.states.splice(pop.states.indexOf(entry),1);
-// 							view.colorStateTile(pop.tile.id,this);
-							view.colorStateTile(pop.tile);
+			if (this.forces - this.losses > this.forces * 0.95) {
+				pop.population -= Math.round(this.force() * 0.1);
+				this.losses += this.forces * 0.95;
+				if (pop.population <= 0) {
+					genocidedTiles.push(pop.tile);
+					pop.tile.populations.splice(pop.tile.populations.indexOf(pop),1);
+					view.colorStateTile(pop.tile);
+				} else {
+					for (var entry of pop.states) {
+						if (entry.state !== this) {
+							entry.compliance -= 0.1 * Math.random();
+							if (entry.compliance <= 0) {
+								entry.state.territory.splice(entry.state.territory.indexOf(pop.tile),1);
+								pop.states.splice(pop.states.indexOf(entry),1);
+								view.colorStateTile(pop.tile);
+							};
 						};
 					};
 				};
 			};
 		};
+		if (genocidedTiles.length > 0) {
+			resultArray.push(new Event(genocidedTiles,this,'genocide'));
+		};
 		
 		// Expansion
 		var frontier = this.frontier('land');
 		frontier.sort(function(a,b) {return a.defense() > b.defense()});
+		var conqueredTiles = [];
 		for (var tile of frontier) {
-			if (this.force() > tile.defense()) {
+			console.log(this.force()>tile.defense(),this.force(),tile.defense());
+			if (this.force() > tile.defense() && this.losses < this.forces * 0.5) {
 				for (var pop of tile.populations) {
-					pop.states.push({state:this,loyalty:0.1});
-// 					tile.states.push(this);
+					pop.states.push({state:this,compliance:0.1});
 					this.territory.push(tile);
-// 					view.colorStateTile(tile.id,this);
 					view.colorStateTile(tile);
-					resultArray.push(new Event([tile],this,'conquest'));
+					conqueredTiles.push(tile);
 				};
-				this.forces = Math.max(0,this.forces - tile.defense() * 0.1);
+				this.losses += tile.defense() * 0.1;
 			} else {
 				break;
 			};
+		};
+		if (conqueredTiles.length > 0) {
+			resultArray.push(new Event(conqueredTiles,this,'conquest'));
 		};
 		
 		// Collapse
@@ -1276,7 +1315,6 @@ function State(population) {
 					};
 				};
 				view.colorStateTile(tile);
-// 				this.territory.splice(this.territory.indexOf(tile),1);
 			};
 		};
 		
@@ -1458,6 +1496,12 @@ function History() {
 			resultArray = population.generation();
 			if (resultArray.length > 0) {eventList = eventList.concat(resultArray)};
 		};
+		for (var population of map.populations) {
+			population.gainNewStuff();
+		};
+		for (var state of map.states) {
+			resultArray = state.forcesUpdate();
+		};
 		for (var state of map.states) {
 			resultArray = state.generation();
 			if (resultArray.length > 0) {eventList = eventList.concat(resultArray)};
@@ -1498,9 +1542,9 @@ function Event(tiles,actor,type,argsArray) {
 		if (this.type == undefined) {
 			string += 'A generation passes.';
 		} else if (this.type == 'domestication') {
-			string += 'Domestication of the ' + argsArray[0].name;
+			string += 'the ' + argsArray[0].name + ' is domesticated for '+argsArray[0].use+'.';
 		} else if (this.type == 'breeding') {
-			string += 'Selective breeding produces the ' + argsArray[0].name;
+			string += 'selective breeding produces the ' + argsArray[0].name;
 		} else if (this.type == 'state') {
 			string += 'the ' + argsArray[0].name + ', a rudimentary state, is founded.';
 		} else if (this.type == 'conquest') {
@@ -1515,15 +1559,15 @@ function Event(tiles,actor,type,argsArray) {
 				for (var livestock of argsArray[1].livestock) {
 					livestockList.push(livestock.name);
 				};
-				string += 'A pastoral culture develops around the ' + prettyList(livestockList) + '.';
+				string += 'a pastoral culture develops around the ' + prettyList(livestockList) + '.';
 			} else if (argsArray[0] == 'agrarian') {
 				var cropsList = [];
 				for (var crop of argsArray[1].crops) {
 					cropsList.push(crop.name);
 				};
-				string += 'An agrarian culture develops around the ' + prettyList(cropsList) + '.';
+				string += 'an agrarian culture develops around the ' + prettyList(cropsList) + '.';
 			} else if (argsArray[0] == 'hunter-gatherer') {
-				string += 'People return to hunter-gatherer culture.';
+				string += 'people return to hunter-gatherer culture.';
 			} else {
 				console.log('error:',tiles,actor,type,argsArray);
 				string += 'A ' + argsArray[0] + ' food culture develops.';

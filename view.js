@@ -377,12 +377,12 @@ var view = {
 	colorStateTile: function(tile) {
 		var color;
 		var polygon = document.getElementById('tile_'+tile.id);
-		var highestLoyalty = 0;
+		var highestcompliance = 0;
 		var loyalToState = undefined;
 		for (var pop of tile.populations) {
 			for (var entry of pop.states) {
-				if (entry.loyalty > highestLoyalty) {
-					highestLoyalty = entry.loyalty;
+				if (entry.compliance > highestcompliance) {
+					highestcompliance = entry.compliance;
 					loyalToState = entry.state;
 				}
 			};
@@ -578,7 +578,7 @@ var view = {
 					taxP.innerHTML = 'Tax Rate: ' + Math.round(state.tax*100) + '%';
 					stateDiv.appendChild(taxP);
 					var treasuryP = document.createElement('p');
-					treasuryP.innerHTML = 'Treasury: ' + Math.round(state.treasury) + ' units';
+					treasuryP.innerHTML = 'Treasury: ' + Math.round(state.treasury) + '&#164;';
 					stateDiv.appendChild(treasuryP);
 					var forcesP = document.createElement('p');
 					forcesP.innerHTML = 'Military Force: ' + Math.round(state.force());
